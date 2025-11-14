@@ -1,0 +1,76 @@
+This project is a deep learning pipeline I built to classify city sounds into five different categories. It started with a  simple custom CNN, but I had to use Transfer Learning with a pre-trained ResNet18 to get much better results.
+
+To get the best performance possible with the data I had, the pipeline uses modern regularization tricks like Mixup, Label Smoothing, SpecAugment, and Test-Time Augmentation (TTA).
+
+
+
+
+The model learns to identify 5 types of sounds:
+
+"dog_bark"
+
+"drilling"
+
+"engine_idling"
+
+"siren"
+
+"street_music"
+
+
+
+
+How is the data handled?
+instead of using the raw audio file directly(.wav) it is first converted into a mel spectogram (pictures of sound) and saved as pytorch tensors.This makes loading data much faster during the training process.
+
+
+
+
+The Architecture:
+
+Loading and processing .wav files on the fly is too much time-processing. This pipeline uses a two-step approach instead:
+1. Offline Preprocessing: All raw audio is converted into Mel Spectrograms first and saved to Train_Processed/ and Test_Processed/. CSV files keep track of all the metadata.
+2.Custom AudioDataset: This special PyTorch Dataset class just loads the pre-made tensors. It's fast and does two key jobs:
+
+Dynamic Augmentation: Applies FrequencyMasking and TimeMasking (from SpecAugment) on the fly as it loads a batch.
+
+Smart Switching: It knows whether you're training (and returns a spectrogram, label) or testing (and returns a spectrogram, file_id).
+
+
+Evolution of the model:From custom CNN to Transfer learning
+1.First try :Custom CNN:
+At first, I used a basic 4-layer Convolutional Neural Network.Architecture: 4 simple blocks of Conv2d to ReLU to BatchNorm to MaxPool. The filter count grew from $16 \to 32 \to 64 \to 128$ as it got deeper.
+But with this i could only achieve a accuracy of around 90 - 92 percent.
+2.Advanced methods:
+*Using spectograms: initially the model converted the audioo file into mfccs but this reduced the data available for training so we had to switch to spectograms so that more data could be extracted from the audio file.
+* Mixup Regularization
+To prevent overfitting and help the model generalize, it uses Mixup.
+The Idea: Instead of showing the model one sample at a time, we feed it a mix of two samples. This forces the model to learn smoother decision boundaries and be less confident about any single example.
+This ensured that the model was not just memorising the data but actually learning from these new test cases.
+* The inference pipeline does not rely on a single prediction. It implements Test-Time Augmentation (TTA) to increase reliability.
+
+
+Steps: For every test file, the model runs inference 5 times (TTA_STEPS = 5).
+
+
+Augmentation: During these steps, random SpecAugment (Time/Freq masking) is active .
+
+
+Aggregation: The softmax probabilities from all 5 runs are averaged to produce the final class prediction.
+* Label smoothing:
+Standard Cross-Entropy Loss forces the model to be 100% confident in predictions (e.g., [0, 1, 0]). This can lead to overfitting.
+
+
+Implementation: We use CrossEntropyLoss(label_smoothing=0.1), which softens targets (e.g., [0.03, 0.9, 0.03]), encouraging the model to learn more robust representations.
+
+3.Transfer learning(Resnet Model)
+The final model uses a ResNet18 that was pre-trained on ImageNet, a classic move in transfer learning.
+
+
+The Problem: ResNet was built for 3-channel (RGB) images, but our spectrograms only have 1 channel.
+
+The Fix: I modified the first convolutional layer. I averaged the weights from the original 3 channels into a single-channel weight tensor. This trick lets us use all the powerful features the model learned from images, but on our 1-channel sound data.
+
+
+
+This enabled the model to get a testing accuracy above 99 percent.
