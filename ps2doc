@@ -1,0 +1,47 @@
+
+
+ Conditional Audio GAN (PyTorch)
+
+This project is a Conditional Generative Adversarial Network (CGAN) built in PyTorch to generate audio. It works by generating log-Mel spectrograms (visual representations of audio) based on a given class label (e.g., "dog", "siren").
+
+The generated spectrograms are then converted back into audible waveforms using the Griffin-Lim algorithm. 
+
+Features
+
+Conditional Generation: Creates audio samples for specific categories.
+Spectrogram-Based Generates spectrograms, which is  more stable than generating raw waveforms.
+Checkpointing: Automatically saves models to Google Drive and resumes training from the last saved epoch.
+
+Architecture 
+
+1.  `TrainAudioSpectrogramDataset` (Data Loader):
+    * Loads `.wav` files from disk.
+    * Converts audio to a mono-channel, fixed sample rate.
+    * Transforms the waveform into a log-Mel spectrogram, which is a 2D tensor (like an image).
+    * Pads or truncates the spectrogram to a fixed size (`MAX_FRAMES`).
+    * Returns the spectrogram and its one-hot encoded class label.
+
+2.  `CGAN_Generator` :
+    Input: A random noise vector (`z`) and a class label (`y`).
+    Process: Uses a series of `ConvTranspose2d` (upsampling) layers to transform the noise into a full-sized, 2D spectrogram that matches the class label.
+
+3. `CGAN_Discriminator`:
+   Input: A spectrogram and a class label (`y`).
+    Process: Uses a series of `Conv2d` (standard CNN) layers to analyze the spectrogram.
+    Output: A single score (logit) indicating whether the spectrogram is "real" or "fake". It learns to identify fake spectrograms and real spectrograms that don't match their given label.
+
+ Training & Audio Generation
+
+Training: The Generator and Discriminator are trained adversarially. The Generator learns to produce spectrograms that try to "fool" the Discriminator into thinking they are real.
+Audio Generation: To create audio, a noise vector and a desired class label are fed to the Generator. Its output (a log-Mel spectrogram) is converted back to a linear-scale spectrogram and then into a waveform using `torchaudio.transforms.GriffinLim`.
+
+ How to Use
+
+1.  Prepare Data: Create a `.zip` file of your audio dataset, with subfolders for each category (e.g., `train/dog/`, `train/siren/`).
+2.  Upload: Upload the `.zip` file to your Google Drive and create a folder for checkpoints.
+3.  Set `CONFIG`: Update the path variables in the `CONFIG` dictionary to point to your Drive files.
+4.  Run: Execute the `main()` function in your notebook. The script will:
+    * Mount your Google Drive.
+    * Copy and unzip the dataset to the local Colab runtime.
+    * Load the latest checkpoint (if one exists).
+    * Begin training, saving new checkpoints and audio samples periodically.
